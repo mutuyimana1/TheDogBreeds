@@ -1,98 +1,137 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useEffect, useCallback } from "react";
+import { FlatList, ScrollView, StyleSheet, View, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
+import { Bell, PawPrint } from "lucide-react-native";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import Category from "@/components/Category";
+import CustomText from "@/components/CustomText";
+import PetCard from "@/components/PetCard";
+import { SearchSection } from "@/components/SearchSection"; 
+import { COLORS } from "@/constants/theme";
+import { useDogStore } from "@/store/dogStore"; 
 
-export default function HomeScreen() {
+export default function AppScreen() {
+  const router = useRouter();
+
+  const { 
+    filteredBreeds, 
+    categories, 
+    activeCategory, 
+    searchQuery, 
+    loading, 
+    fetchBreeds,
+    setSearchQuery, 
+    setActiveCategory 
+  } = useDogStore();
+
+  useEffect(() => {
+    fetchBreeds(); 
+  }, []);
+
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+  }, [setSearchQuery]);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView style={styles.root}>
+      <StatusBar style="dark" translucent={false} backgroundColor={COLORS.background} />
+      
+      {loading && filteredBreeds.length === 0 ? (
+        <ActivityIndicator size="large" color={COLORS.primary} style={styles.centeredLoader} />
+      ) : (
+        <FlatList
+          data={filteredBreeds.slice(0, 5)}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <View>
+              {/* Header Block */}
+              <View style={styles.header}>
+                <View>
+                  <CustomText variant="title" style={styles.title}>
+                    The Dog
+                  </CustomText>
+                  <CustomText variant="title" color={COLORS.primary}>
+                    The Ultimate Dog Breed Explorer
+                  </CustomText>
+                </View>
+                {/* <TouchableOpacity style={styles.bellBtn}>
+                  <Bell size={22} color={COLORS.textDark} />
+                  <View style={styles.badge} />
+                </TouchableOpacity> */}
+              </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+              {/* Search Section */}
+              <SearchSection 
+                value={searchQuery} 
+                onChangeText={handleSearchChange} 
+                onViewAllPress={() => console.log('View all pressed')}
+              />
+
+              {/* Categories Scrollable Bar */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoriesList}
+                style={styles.categoriesScroll}
+              >
+                <Category
+                  label="All"
+                  icon={<PawPrint size={22} color={activeCategory === 'All' ? '#FFF' : COLORS.primary} />}
+                  isActive={activeCategory === "All"}
+                  onPress={() => setActiveCategory("All")}
+                />
+
+                {categories.map((cat) => (
+                  <Category
+                    key={cat.id}
+                    label={cat.name}
+                    isActive={activeCategory === cat.name}
+                    onPress={() => setActiveCategory(cat.name)}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          }
+          
+          ListEmptyComponent={
+            <CustomText style={styles.emptyText}>No breeds found matching selections.</CustomText>
+          }
+          renderItem={({ item }) => (
+            <PetCard
+              name={item.name}
+              distance={item.origin || "Global"}
+              imageUri={item.image?.url || "https://unsplash.com"}
+              lifeSpan={`${item.life_span || "10-15"} Yrs`}
+              tagline={item.description || item.temperament || "Alert, loyal, active, and friendly native companion breed profile."}
+              breed_group={item.breed_group || "Mixed Breed"}
+              isFavorite={false}
+              onPress={() => 
+                router.push({
+                  pathname: "/breed/[id]",
+                  params: { id: item.id.toString() }
+                })
+              }
+            />
+          )}
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  root: { flex: 1, backgroundColor: COLORS.background },
+  title:{paddingBottom: 10 },
+  listContainer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
+  centeredLoader: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyText: { textAlign: 'center', marginTop: 40, color: COLORS.textMuted },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 },
+  bellBtn: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: COLORS.border, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.cardBg },
+  badge: { position: "absolute", top: 12, right: 14, width: 8, height: 8, borderRadius: 4, backgroundColor: "#FF3B30" },
+  categoriesScroll: { marginBottom: 16 },
+  categoriesList: { gap: 12, paddingBottom: 8 },
 });
